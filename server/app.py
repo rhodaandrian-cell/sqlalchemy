@@ -10,11 +10,22 @@ migrate = Migrate(app, db)
 CORS(app)
 app.secret_key = "sehtrsdyhndtejdydunuyehbdrvteryhe"
 
-# model
+
+# MODEL
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    username = db.Column(db.String(50), nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "content": self.content,
+            "username": self.username
+        }
+
 
 # CRUD
 
@@ -22,53 +33,83 @@ class Post(db.Model):
 @app.route("/posts")
 def fetch_posts():
     posts = Post.query.all()
-    results = []
-    for post in posts:
-        results.append({
-            "id": post.id,
-            "title": post.title,
-            "content": post.content
-        })
-    return jsonify(results), 200
+    return jsonify([post.to_dict() for post in posts]), 200
+
 
 # READ ONE
 @app.route("/posts/<int:id>", methods=["GET"])
 def fetch_post(id):
-    post = Post.query.get(id)
+    post = db.session.get(Post, id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
-    return jsonify({"id": post.id, "title": post.title, "content": post.content}), 200
+    return jsonify(post.to_dict()), 200
 
-# ADD
+
+# CREATE
 @app.route("/posts", methods=["POST"])
 def create_post():
     data = request.json
-    new_post = Post(title=data["title"], content=data["content"])
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    title = data.get("title", "").strip()
+    content = data.get("content", "").strip()
+    username = data.get("username", "").strip()
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not content:
+        return jsonify({"error": "Content is required"}), 400
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    new_post = Post(title=title, content=content, username=username)
     db.session.add(new_post)
     db.session.commit()
-    return jsonify({"id": new_post.id, "title": new_post.title, "content": new_post.content}), 201
+    return jsonify(new_post.to_dict()), 201
+
 
 # UPDATE
 @app.route("/posts/<int:id>", methods=["PUT"])
 def update_post(id):
-    post = Post.query.get(id)
+    post = db.session.get(Post, id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
+
     data = request.json
-    post.title = data["title"]
-    post.content = data["content"]
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    title = data.get("title", "").strip()
+    content = data.get("content", "").strip()
+    username = data.get("username", "").strip()
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not content:
+        return jsonify({"error": "Content is required"}), 400
+    if not username:
+        return jsonify({"error": "Username is required"}), 400
+
+    post.title = title
+    post.content = content
+    post.username = username
     db.session.commit()
-    return jsonify({"id": post.id, "title": post.title, "content": post.content}), 200
+    return jsonify(post.to_dict()), 200
+
 
 # DELETE
 @app.route("/posts/<int:id>", methods=["DELETE"])
 def delete_post(id):
-    post = Post.query.get(id)
+    post = db.session.get(Post, id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
     db.session.delete(post)
     db.session.commit()
     return jsonify({"message": f"Post {id} deleted successfully"}), 200
+
 
 if __name__ == "__main__":
     app.run(debug=True)
